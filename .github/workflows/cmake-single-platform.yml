@@ -1,0 +1,50 @@
+name: CMake on a single platform
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  BUILD_TYPE: Release
+  BUILD_SHARED_LIBS: OFF
+  MAKE_INSTALLABLE: ON
+  BUILD_EXECUTABLE: ON
+  BUILD_TESTING: ON
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup cmake
+      uses: jwlawson/actions-setup-cmake@v2
+      with:
+        cmake-version: '4.2.x'
+
+    - name: Configure CMake
+      run: |
+        cmake -S . -B ${{github.workspace}}/build                    \
+          -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}                     \
+          -DBUILD_TESTING=${{env.BUILD_TESTING}}                     \
+          -DBUILD_EXECUTABLE=${{env.BUILD_EXECUTABLE}}               \
+          -DMAKE_INSTALLABLE=${{env.MAKE_INSTALLABLE}}               \
+          -DBUILD_SHARED_LIBS=${{env.BUILD_SHARED_LIBS}}             \
+          -DCMAKE_INSTALL_PREFIX:PATH=$GITHUB_WORKSPACE/test_install \
+          -DFETCHCONTENT_UPDATES_DISCONNECTED=ON
+
+    - name: Build
+      working-directory: ${{github.workspace}}/build
+      run: cmake --build . --config ${{env.BUILD_TYPE}}
+
+    - name: Test
+      working-directory: ${{github.workspace}}/build
+      run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure
+
+    - name: Test Install
+      working-directory: ${{github.workspace}}/build
+      run: cmake --install . --config ${{env.BUILD_TYPE}}
