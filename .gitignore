@@ -123,3 +123,6 @@ modules.xml
 *.ipr
 
 # End of https://www.toptal.com/developers/gitignore/api/c++,clion+iml
+
+build/
+.cache/
