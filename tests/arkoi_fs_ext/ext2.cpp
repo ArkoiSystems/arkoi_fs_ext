@@ -108,9 +108,9 @@ TEST(Ext2ApiTest, ValidBlockGroupDescriptorRead) {
     EXPECT_EQ(descriptor.bg_block_bitmap, 3U);
     EXPECT_EQ(descriptor.bg_inode_bitmap, 4U);
     EXPECT_EQ(descriptor.bg_inode_table, 5U);
-    EXPECT_EQ(descriptor.bg_free_blocks_count, 231U);
-    EXPECT_EQ(descriptor.bg_free_inodes_count, 19U);
-    EXPECT_EQ(descriptor.bg_used_dirs_count, 3U);
+    EXPECT_EQ(descriptor.bg_free_blocks_count, 244U);
+    EXPECT_EQ(descriptor.bg_free_inodes_count, 21U);
+    EXPECT_EQ(descriptor.bg_used_dirs_count, 1U);
 }
 
 TEST(Ext2ApiTest, ValidRootInodeRead) {
@@ -126,10 +126,10 @@ TEST(Ext2ApiTest, ValidRootInodeRead) {
 
     EXPECT_EQ(inode.i_mode, 33188U);
     EXPECT_EQ(inode.i_uid, 0U);
-    EXPECT_EQ(inode.i_size, 27U);
-    EXPECT_EQ(inode.i_atime, 1774177745U);
-    EXPECT_EQ(inode.i_ctime, 1774177745U);
-    EXPECT_EQ(inode.i_mtime, 1774177745U);
+    EXPECT_EQ(inode.i_size, 13U);
+    EXPECT_EQ(inode.i_atime, 1774201364U);
+    EXPECT_EQ(inode.i_ctime, 1774201364U);
+    EXPECT_EQ(inode.i_mtime, 1774201364U);
     EXPECT_EQ(inode.i_dtime, 0U);
     EXPECT_EQ(inode.i_gid, 0U);
     EXPECT_EQ(inode.i_links_count, 1U);
