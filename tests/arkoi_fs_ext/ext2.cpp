@@ -66,37 +66,6 @@ TEST(Ext2ApiTest, MountParsesSuperblockAndGeometry) {
     EXPECT_EQ(ext.superblock.s_magic, 0xEF53U);
 }
 
-TEST(Ext2ApiTest, ReadsGroupDescriptor) {
-    FileDevice device = create_device("valid.img");
-    ext_filesystem ext{};
-    
-    const ext_status mount_status = ext2_mount(&ext, make_device(&device));
-    EXPECT_EQ(mount_status, EXT_STATUS_OK);
-
-    ext_group_descriptor group_desc{};
-    const ext_status status = ext2_read_group_descriptor(&ext, 0U, &group_desc);
-
-    EXPECT_EQ(status, EXT_STATUS_OK);
-    EXPECT_EQ(group_desc.inode_table, 5U);
-    EXPECT_EQ(group_desc.used_dirs_count, 2U);
-}
-
-TEST(Ext2ApiTest, ReadsRootInode) {
-    FileDevice device = create_device("valid.img");
-    ext_filesystem ext{};
-
-    const ext_status mount_status = ext2_mount(&ext, make_device(&device));
-    EXPECT_EQ(mount_status, EXT_STATUS_OK);
-
-    ext_inode inode{};
-    const ext_status status = ext2_read_inode(&ext, 2U, &inode);
-
-    EXPECT_EQ(status, EXT_STATUS_OK);
-    EXPECT_EQ(inode.mode, 0x41EDU);
-    EXPECT_EQ(inode.size, 1024U);
-    EXPECT_EQ(inode.block[0], 9U);
-}
-
 TEST(Ext2ApiTest, RejectsBadMagic) {
     FileDevice device = create_device("bad_magic.img");
     ext_filesystem ext{};
@@ -120,29 +89,4 @@ TEST(Ext2ApiTest, RejectsNullFilesystemInMount) {
 
     const ext_status mount_status = ext2_mount(nullptr, make_device(&device));
     EXPECT_EQ(mount_status, EXT_STATUS_INVALID_ARGUMENT);
-}
-
-TEST(Ext2ApiTest, RejectsOutOfRangeGroupDescriptorIndex) {
-    FileDevice device = create_device("valid.img");
-    ext_filesystem ext{};
-
-    const ext_status mount_status = ext2_mount(&ext, make_device(&device));
-    EXPECT_EQ(mount_status, EXT_STATUS_OK);
-
-    ext_group_descriptor group_desc{};
-    const ext_status group_status = ext2_read_group_descriptor(&ext, ext.group_count, &group_desc);
-    EXPECT_EQ(group_status, EXT_STATUS_OUT_OF_RANGE);
-}
-
-TEST(Ext2ApiTest, RejectsZeroInodeNumber) {
-    FileDevice device = create_device("valid.img");
-    ext_filesystem ext{};
-
-    const ext_status mount_status = ext2_mount(&ext, make_device(&device));
-    EXPECT_EQ(mount_status, EXT_STATUS_OK);
-
-    ext_inode inode{};
-
-    const ext_status inode_status = ext2_read_inode(&ext, 0U, &inode);
-    EXPECT_EQ(inode_status, EXT_STATUS_INVALID_ARGUMENT);
 }

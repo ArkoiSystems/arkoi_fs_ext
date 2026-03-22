@@ -73,32 +73,6 @@ typedef struct ext_superblock {
 	uint8_t s_padding_3[760];        /**< Remaining superblock bytes to 1024. */
 } ext_superblock;
 
-typedef struct ext_group_descriptor {
-	uint32_t block_bitmap;       /**< Block bitmap block address. */
-	uint32_t inode_bitmap;       /**< Inode bitmap block address. */
-	uint32_t inode_table;        /**< Starting block of inode table. */
-	uint16_t free_blocks_count;  /**< Free blocks in the group. */
-	uint16_t free_inodes_count;  /**< Free inodes in the group. */
-	uint16_t used_dirs_count;    /**< Number of directories in the group. */
-	uint16_t pad;                /**< Padding to align descriptor. */
-	uint32_t reserved[3];        /**< Reserved fields in EXT2 descriptor. */
-} ext_group_descriptor;
-
-typedef struct ext_inode {
-	uint16_t mode;
-	uint16_t uid;
-	uint32_t size;
-	uint32_t atime;
-	uint32_t ctime;
-	uint32_t mtime;
-	uint32_t dtime;
-	uint16_t gid;
-	uint16_t links_count;
-	uint32_t blocks;
-	uint32_t flags;
-	uint32_t block[15];
-} ext_inode;
-
 typedef struct ext_filesystem {
 	ext_device device;
 	ext_superblock superblock;
@@ -111,10 +85,6 @@ typedef struct ext_filesystem {
 ext_status ext2_mount(ext_filesystem* fs, ext_device device);
 
 ext_status ext2_read_superblock(const ext_filesystem* fs, ext_superblock* superblock);
-
-ext_status ext2_read_group_descriptor(const ext_filesystem* fs, uint32_t index, ext_group_descriptor* desc);
-
-ext_status ext2_read_inode(const ext_filesystem* fs, uint32_t number, ext_inode* inode);
 
 #ifdef __cplusplus
 }

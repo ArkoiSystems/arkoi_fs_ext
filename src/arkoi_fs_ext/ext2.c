@@ -4,7 +4,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-static const uint32_t EXT2_GROUP_DESCRIPTOR_SIZE = 32U;
 static const uint64_t EXT2_SUPERBLOCK_OFFSET = 1024U;
 static const uint16_t EXT2_MAGIC = 0xEF53U;
 
@@ -134,83 +133,4 @@ ext_status ext2_read_superblock(const ext_filesystem* fs, ext_superblock* superb
     }
 
     return decode_superblock(sb_bytes, superblock);
-}
-
-ext_status ext2_read_group_descriptor(const ext_filesystem* fs, const uint32_t index, ext_group_descriptor* desc) {
-    if (fs == NULL || desc == NULL) {
-        return EXT_STATUS_INVALID_ARGUMENT;
-    }
-
-    if (index >= fs->group_count) {
-        return EXT_STATUS_OUT_OF_RANGE;
-    }
-
-    const uint64_t offset = fs->group_descriptor_table_offset + ((uint64_t) index * EXT2_GROUP_DESCRIPTOR_SIZE);
-
-    uint8_t data[32U];
-    const ext_status status = device_read(fs, offset, data, sizeof(data));
-    if (status != EXT_STATUS_OK) {
-        return status;
-    }
-
-    cursor cur = { data };
-
-    cursor_read_u32(&cur, &desc->block_bitmap);
-    cursor_read_u32(&cur, &desc->inode_bitmap);
-    cursor_read_u32(&cur, &desc->inode_table);
-    cursor_read_u16(&cur, &desc->free_blocks_count);
-    cursor_read_u16(&cur, &desc->free_inodes_count);
-    cursor_read_u16(&cur, &desc->used_dirs_count);
-    cursor_read_u16(&cur, &desc->pad);
-    cursor_read_bytes(&cur, (uint8_t*) desc->reserved, sizeof(desc->reserved));
-
-    return EXT_STATUS_OK;
-}
-
-ext_status ext2_read_inode(const ext_filesystem* fs, const uint32_t number, ext_inode* inode) {
-    if (fs == NULL || inode == NULL || number == 0U) {
-        return EXT_STATUS_INVALID_ARGUMENT;
-    }
-
-    const uint32_t inode_index = number - 1U;
-    const uint32_t group = inode_index / fs->superblock.s_inodes_per_group;
-    const uint32_t group_index = inode_index % fs->superblock.s_inodes_per_group;
-
-    ext_group_descriptor desc;
-    ext_status status = ext2_read_group_descriptor(fs, group, &desc);
-    if (status != EXT_STATUS_OK) {
-        return status;
-    }
-
-    uint8_t data[256U];
-    if (fs->inode_size > sizeof(data)) {
-        return EXT_STATUS_UNSUPPORTED;
-    }
-
-    const uint64_t offset = ((uint64_t) desc.inode_table * fs->block_size) + ((uint64_t) group_index * fs->inode_size);
-    status = device_read(fs, offset, data, fs->inode_size);
-    if (status != EXT_STATUS_OK) {
-        return status;
-    }
-
-    cursor cur = { data };
-
-    cursor_read_u16(&cur, &inode->mode);
-    cursor_read_u16(&cur, &inode->uid);
-    cursor_read_u32(&cur, &inode->size);
-    cursor_read_u32(&cur, &inode->atime);
-    cursor_read_u32(&cur, &inode->ctime);
-    cursor_read_u32(&cur, &inode->mtime);
-    cursor_read_u32(&cur, &inode->dtime);
-    cursor_read_u16(&cur, &inode->gid);
-    cursor_read_u16(&cur, &inode->links_count);
-    cursor_read_u32(&cur, &inode->blocks);
-    cursor_read_u32(&cur, &inode->flags);
-    cur.data += 4U;
-
-    for (uint32_t index = 0U; index < 15U; ++index) {
-        cursor_read_u32(&cur, &inode->block[index]);
-    }
-
-    return EXT_STATUS_OK;
 }
