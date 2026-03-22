@@ -14,7 +14,9 @@ include(GNUInstallDirs)
 
 # --- Library ---
 
-add_library(${PROJECT_NAME} STATIC src/arkoi_fs_ext/ext2.c)
+add_library(${PROJECT_NAME} STATIC
+        src/arkoi_fs_ext/ext2.c
+        src/arkoi_fs_ext/cursor.c)
 add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
 target_include_directories(${PROJECT_NAME}

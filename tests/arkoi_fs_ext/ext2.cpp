@@ -6,7 +6,7 @@
 #include <fstream>
 #include <vector>
 
-#include "arkoi_fs_ext/ext2.hpp"
+#include "arkoi_fs_ext/ext2.h"
 
 #ifndef ARKOI_TEST_FIXTURES_DIR
 #error "ARKOI_TEST_FIXTURES_DIR must be defined via CMake"
@@ -63,7 +63,7 @@ TEST(Ext2ApiTest, MountParsesSuperblockAndGeometry) {
     EXPECT_EQ(ext.block_size, 1024U);
     EXPECT_EQ(ext.inode_size, 128U);
     EXPECT_EQ(ext.group_count, 1U);
-    EXPECT_EQ(ext.superblock.magic, 0xEF53U);
+    EXPECT_EQ(ext.superblock.s_magic, 0xEF53U);
 }
 
 TEST(Ext2ApiTest, ReadsGroupDescriptor) {
