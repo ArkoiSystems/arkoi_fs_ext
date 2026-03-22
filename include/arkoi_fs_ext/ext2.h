@@ -9,16 +9,19 @@ extern "C" {
 #endif
 
 typedef enum ext_status {
-	EXT_STATUS_OK = 0,
-	EXT_STATUS_INVALID_ARGUMENT = 1,
-	EXT_STATUS_IO_ERROR = 2,
-	EXT_STATUS_BAD_MAGIC = 3,
-	EXT_STATUS_UNSUPPORTED = 4,
-	EXT_STATUS_OUT_OF_RANGE = 5
+	EXT_STATUS_OK = 0,					/**< Operation completed successfully. */
+	EXT_STATUS_INVALID_ARGUMENT = 1,	/**< Invalid argument provided to function. */
+	EXT_STATUS_IO_ERROR = 2,			/**< I/O error occurred during device read/write. */
+	EXT_STATUS_BAD_MAGIC = 3,			/**< Filesystem magic number did not match expected value. */
+	EXT_STATUS_UNSUPPORTED = 4,			/**< Filesystem features or parameters are not supported. */
+	EXT_STATUS_OUT_OF_RANGE = 5			/**< Requested operation is out of valid range (e.g., block or inode number). */
 } ext_status;
 
 typedef struct ext_device {
+	/* Context pointer passed to device read function, can be used to store state or references. */
 	void* context;
+
+	/* Function pointer for reading data from the device. Should return 0 on success, non-zero on failure. */
 	int (*read)(void* context, uint64_t offset, void* data, size_t bytes);
 } ext_device;
 
@@ -74,16 +77,49 @@ typedef struct ext_superblock {
 } ext_superblock;
 
 typedef struct ext_filesystem {
-	ext_device device;
-	ext_superblock superblock;
-	uint32_t block_size;
-	uint32_t inode_size;
-	uint32_t group_count;
-	uint64_t group_descriptor_table_offset;
+	ext_device device;						/**< Device interface for reading filesystem data. */
+	ext_superblock superblock;				/**< Cached superblock data for quick access. */
+	uint32_t block_size;					/**< Block size in bytes, calculated from superblock. */
+	uint32_t inode_size;					/**< Inode size in bytes, from superblock. */
+	uint32_t group_count;					/**< Number of block groups in the filesystem. */	
+	uint64_t group_descriptor_table_offset;	/**< Byte offset to the block group descriptor table on the device. */
 } ext_filesystem;
 
+/**
+ * @brief Mounts an EXT2 filesystem on the specified device.
+ *
+ * Initializes and mounts an EXT2 filesystem from the provided device,
+ * populating the filesystem structure with metadata and preparing it for operations.
+ *
+ * @param fs Pointer to the `ext_filesystem` structure to be initialized with
+ *           the mounted filesystem information.
+ * @param device The `ext_device` containing the EXT2 filesystem to mount.
+ *
+ * @return `ext_status` Status code indicating success or failure of the mount operation.
+ *         - Success if the filesystem was mounted successfully.
+ *         - Error code if the operation failed (e.g., I/O error, invalid filesystem).
+ *
+ * @note The filesystem structure must be allocated before calling this function.
+ * @note The device must remain valid and accessible for the lifetime of the mount.
+ */
 ext_status ext2_mount(ext_filesystem* fs, ext_device device);
 
+/**
+ * @brief Reads the superblock from an EXT2 filesystem.
+ * 
+ * Reads the superblock structure from the specified EXT2 filesystem and populates
+ * the provided superblock structure with the filesystem metadata.
+ * 
+ * @param fs Pointer to the `ext_filesystem` structure representing the EXT2 filesystem.
+ * @param superblock Pointer to an `ext_superblock` structure where the read superblock
+ *                   data will be stored.
+ * 
+ * @return `ext_status` Status code indicating the result of the operation.
+ *         - Success if the superblock was read successfully.
+ *         - Error code if the operation failed (e.g., I/O error, invalid filesystem).
+ * 
+ * @see ext_filesystem, ext_superblock, ext_status
+ */
 ext_status ext2_read_superblock(const ext_filesystem* fs, ext_superblock* superblock);
 
 #ifdef __cplusplus
