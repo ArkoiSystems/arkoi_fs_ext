@@ -112,3 +112,31 @@ TEST(Ext2ApiTest, ValidBlockGroupDescriptorRead) {
     EXPECT_EQ(descriptor.bg_free_inodes_count, 19U);
     EXPECT_EQ(descriptor.bg_used_dirs_count, 3U);
 }
+
+TEST(Ext2ApiTest, ValidRootInodeRead) {
+    FileDevice device = create_device("valid.img");
+    ext_filesystem ext{};
+
+    const ext_status mount_status = ext2_mount(&ext, make_device(&device));
+    EXPECT_EQ(mount_status, EXT_STATUS_OK);
+
+    ext_inode inode{};
+    const ext_status inode_status = ext2_read_inode(&ext, 12, &inode);
+    EXPECT_EQ(inode_status, EXT_STATUS_OK);
+
+    EXPECT_EQ(inode.i_mode, 33188U);
+    EXPECT_EQ(inode.i_uid, 0U);
+    EXPECT_EQ(inode.i_size, 27U);
+    EXPECT_EQ(inode.i_atime, 1774177745U);
+    EXPECT_EQ(inode.i_ctime, 1774177745U);
+    EXPECT_EQ(inode.i_mtime, 1774177745U);
+    EXPECT_EQ(inode.i_dtime, 0U);
+    EXPECT_EQ(inode.i_gid, 0U);
+    EXPECT_EQ(inode.i_links_count, 1U);
+    EXPECT_EQ(inode.i_blocks, 2U);
+    EXPECT_EQ(inode.i_flags, 0U);
+    EXPECT_EQ(inode.i_osd1, 0U);
+    EXPECT_EQ(inode.i_file_acl, 0U);
+    EXPECT_EQ(inode.i_dir_acl, 0U);
+    EXPECT_EQ(inode.i_faddr, 0U);
+}

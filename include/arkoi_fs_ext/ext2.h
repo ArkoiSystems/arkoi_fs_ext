@@ -87,6 +87,27 @@ typedef struct ext_block_group_descriptor {
 	uint8_t bg_reserved[12];       	/**< Reserved for future use. */
 } ext_block_group_descriptor;
 
+typedef struct ext_inode {
+	uint16_t i_mode;     	/**< File mode (type and permissions). */
+	uint16_t i_uid;      	/**< Owner UID. */
+	uint32_t i_size;       	/**< Size in bytes. */
+	uint32_t i_atime;   	/**< Access time (Unix time). */
+	uint32_t i_ctime;    	/**< Creation time (Unix time). */
+	uint32_t i_mtime;    	/**< Modification time (Unix time). */
+	uint32_t i_dtime;   	/**< Deletion time (Unix time). */
+	uint16_t i_gid;       	/**< Group ID. */
+	uint16_t i_links_count;	/**< Links count. */
+	uint32_t i_blocks;    	/**< Blocks count (512-byte units). */
+	uint32_t i_flags;     	/**< File flags. */
+	uint32_t i_osd1;      	/**< OS-dependent value 1. */
+	uint32_t i_block[15];  	/**< Pointers to blocks. */
+	uint32_t i_generation;	/**< File version (for NFS). */
+	uint32_t i_file_acl;   	/**< File ACL. */
+	uint32_t i_dir_acl;  	/**< Directory ACL. */
+	uint32_t i_faddr;    	/**< Fragment address. */
+	uint8_t i_osd2[12];   	/**< OS-dependent value 2. */
+} ext_inode;
+
 typedef struct ext_filesystem {
 	ext_device device;					/**< Device interface for reading filesystem data. */
 	ext_superblock superblock;			/**< Cached superblock data for quick access. */
@@ -151,6 +172,24 @@ ext_status ext2_read_superblock(const ext_filesystem* fs, ext_superblock* superb
  * @see ext_filesystem, ext_block_group_descriptor, ext_status
  */
 ext_status ext2_read_block_group_descriptor(const ext_filesystem* fs, uint32_t group_index, ext_block_group_descriptor* block_group_descriptor);
+
+/**
+ * @brief Reads an inode from an EXT2 filesystem.
+ * 
+ * Reads the inode structure for the specified inode number from the EXT2 filesystem
+ * and populates the provided inode structure with the relevant metadata.
+ * 
+ * @param fs Pointer to the `ext_filesystem` structure representing the EXT2 filesystem.
+ * @param number The number of the inode to read (1-based).
+ * @param inode Pointer to an `ext_inode` structure where the read inode data will be stored.
+ * 
+ * @return `ext_status` Status code indicating the result of the operation.
+ *         - Success if the inode was read successfully.
+ *         - Error code if the operation failed (e.g., I/O error, invalid inode number).
+ * 
+ * @see ext_filesystem, ext_inode, ext_status
+ */
+ext_status ext2_read_inode(const ext_filesystem* fs, uint32_t number, ext_inode* inode);
 
 #ifdef __cplusplus
 }

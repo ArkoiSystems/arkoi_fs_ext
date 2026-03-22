@@ -137,35 +137,35 @@ ext_status ext2_read_superblock(const ext_filesystem* fs, ext_superblock* superb
     return decode_superblock(data, superblock);
 }
 
-static ext_status decode_block_group_descriptor(const uint8_t* data, ext_block_group_descriptor* block_group_descriptor) {
-    if (data == NULL || block_group_descriptor == NULL) {
+static ext_status decode_block_group_descriptor(const uint8_t* data, ext_block_group_descriptor* descriptor) {
+    if (data == NULL || descriptor == NULL) {
         return EXT_STATUS_INVALID_ARGUMENT;
     }
 
     cursor cursor = { data };
 
-    cursor_read_u32(&cursor, &block_group_descriptor->bg_block_bitmap);
-    cursor_read_u32(&cursor, &block_group_descriptor->bg_inode_bitmap);
-    cursor_read_u32(&cursor, &block_group_descriptor->bg_inode_table);
-    cursor_read_u16(&cursor, &block_group_descriptor->bg_free_blocks_count);
-    cursor_read_u16(&cursor, &block_group_descriptor->bg_free_inodes_count);
-    cursor_read_u16(&cursor, &block_group_descriptor->bg_used_dirs_count);
-    cursor_read_u16(&cursor, &block_group_descriptor->bg_pad);
-    cursor_read_bytes(&cursor, block_group_descriptor->bg_reserved, NELEMS(block_group_descriptor->bg_reserved));
+    cursor_read_u32(&cursor, &descriptor->bg_block_bitmap);
+    cursor_read_u32(&cursor, &descriptor->bg_inode_bitmap);
+    cursor_read_u32(&cursor, &descriptor->bg_inode_table);
+    cursor_read_u16(&cursor, &descriptor->bg_free_blocks_count);
+    cursor_read_u16(&cursor, &descriptor->bg_free_inodes_count);
+    cursor_read_u16(&cursor, &descriptor->bg_used_dirs_count);
+    cursor_read_u16(&cursor, &descriptor->bg_pad);
+    cursor_read_bytes(&cursor, descriptor->bg_reserved, NELEMS(descriptor->bg_reserved));
 
     return EXT_STATUS_OK;
 }
 
-ext_status ext2_read_block_group_descriptor(const ext_filesystem* fs, uint32_t group_index, ext_block_group_descriptor* block_group_descriptor) {
-    if (fs == NULL || block_group_descriptor == NULL) {
+ext_status ext2_read_block_group_descriptor(const ext_filesystem* fs, uint32_t index, ext_block_group_descriptor* descriptor) {
+    if (fs == NULL || descriptor == NULL) {
         return EXT_STATUS_INVALID_ARGUMENT;
     }
 
-    if (group_index >= fs->block_group_table_count) {
+    if (index >= fs->block_group_table_count) {
         return EXT_STATUS_OUT_OF_RANGE;
     }
 
-    const uint64_t offset = fs->block_group_table_offset + group_index * sizeof(ext_block_group_descriptor);
+    const uint64_t offset = fs->block_group_table_offset + index * sizeof(ext_block_group_descriptor);
     uint8_t data[sizeof(ext_block_group_descriptor)];
 
     const ext_status status = device_read(fs, offset, data, sizeof(data));
@@ -173,5 +173,67 @@ ext_status ext2_read_block_group_descriptor(const ext_filesystem* fs, uint32_t g
         return status;
     }
 
-    return decode_block_group_descriptor(data, block_group_descriptor);
+    return decode_block_group_descriptor(data, descriptor);
+}
+
+static ext_status decode_inode(const uint8_t* data, ext_inode* inode) {
+    if (data == NULL || inode == NULL) {
+        return EXT_STATUS_INVALID_ARGUMENT;
+    }
+
+    cursor cursor = { data };
+
+    cursor_read_u16(&cursor, &inode->i_mode);
+    cursor_read_u16(&cursor, &inode->i_uid);
+    cursor_read_u32(&cursor, &inode->i_size);
+    cursor_read_u32(&cursor, &inode->i_atime);
+    cursor_read_u32(&cursor, &inode->i_ctime);
+    cursor_read_u32(&cursor, &inode->i_mtime);
+    cursor_read_u32(&cursor, &inode->i_dtime);
+    cursor_read_u16(&cursor, &inode->i_gid);
+    cursor_read_u16(&cursor, &inode->i_links_count);
+    cursor_read_u32(&cursor, &inode->i_blocks);
+    cursor_read_u32(&cursor, &inode->i_flags);
+    cursor_read_u32(&cursor, &inode->i_osd1);
+    for (uint32_t index = 0U; index < NELEMS(inode->i_block); ++index) {
+        cursor_read_u32(&cursor, &inode->i_block[index]);
+    }
+    cursor_read_u32(&cursor, &inode->i_generation);
+    cursor_read_u32(&cursor, &inode->i_file_acl);
+    cursor_read_u32(&cursor, &inode->i_dir_acl);
+    cursor_read_u32(&cursor, &inode->i_faddr);
+    cursor_read_bytes(&cursor, inode->i_osd2, NELEMS(inode->i_osd2));
+
+    return EXT_STATUS_OK;
+}
+
+ext_status ext2_read_inode(const ext_filesystem* fs, uint32_t number, ext_inode* inode) {
+    if (fs == NULL || inode == NULL) {
+        return EXT_STATUS_INVALID_ARGUMENT;
+    } 
+
+    if (number == 0 || number > fs->superblock.s_inodes_count) {
+        return EXT_STATUS_OUT_OF_RANGE;
+    }
+
+    const uint32_t group_index = (number - 1) / fs->superblock.s_inodes_per_group;
+    const uint32_t table_index = (number - 1) % fs->superblock.s_inodes_per_group;
+
+    ext_block_group_descriptor descriptor;
+
+    const ext_status group_status = ext2_read_block_group_descriptor(fs, group_index, &descriptor);
+    if (group_status != EXT_STATUS_OK) {
+        return group_status;
+    }
+
+    const uint64_t table_offset = descriptor.bg_inode_table * (uint64_t)(fs->block_size);
+    const uint64_t node_offset = table_offset + (table_index * fs->inode_size);
+    uint8_t data[fs->inode_size];
+
+    const ext_status device_status = device_read(fs, node_offset, data, sizeof(data));
+    if (device_status != EXT_STATUS_OK) {
+        return device_status;
+    }
+
+    return decode_inode(data, inode);
 }
