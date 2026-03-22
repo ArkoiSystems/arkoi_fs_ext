@@ -199,9 +199,61 @@ ext_status ext2_read_block_group_descriptor(const ext_filesystem* fs, uint32_t g
  */
 ext_status ext2_read_inode(const ext_filesystem* fs, uint32_t number, ext_inode* inode);
 
+/**
+ * @brief Looks up an inode by name within a directory.
+ * 
+ * Searches for an inode with the specified name within the given directory
+ * and populates the provided inode structure with the found metadata.
+ * 
+ * @param fs Pointer to the `ext_filesystem` structure representing the EXT2 filesystem.
+ * @param dir Pointer to the `ext_inode` structure representing the directory to search.
+ * @param name The name of the inode to look up.
+ * @param found Pointer to an `ext_inode` structure where the found inode data will be stored.
+ * 
+ * @return `ext_status` Status code indicating the result of the operation.
+ *         - Success if the inode was found and read successfully.
+ *         - Error code if the operation failed (e.g., I/O error, invalid directory, or file not found).
+ * 
+ * @see ext_filesystem, ext_inode, ext_status
+ */
 ext_status ext2_lookup_name(const ext_filesystem* fs, const ext_inode* dir, const char* name, ext_inode* found);
 
+/**
+ * @brief Looks up an inode by path.
+ * 
+ * Searches for an inode at the specified path within the EXT2 filesystem
+ * and populates the provided inode structure with the found metadata.
+ * 
+ * @param fs Pointer to the `ext_filesystem` structure representing the EXT2 filesystem.
+ * @param path The path of the inode to look up.
+ * @param found Pointer to an `ext_inode` structure where the found inode data will be stored.
+ * 
+ * @return `ext_status` Status code indicating the result of the operation.
+ *         - Success if the inode was found and read successfully.
+ *         - Error code if the operation failed (e.g., I/O error, invalid path, or file not found).
+ * 
+ * @see ext_filesystem, ext_inode, ext_status
+ */
 ext_status ext2_lookup_path(const ext_filesystem* fs, const char* path, ext_inode* found);
+
+/**
+ * @brief Reads data from a file represented by an inode.
+ * 
+ * Reads data from the specified file inode at the given offset into the provided buffer.
+ * 
+ * @param fs Pointer to the `ext_filesystem` structure representing the EXT2 filesystem.
+ * @param file Pointer to the `ext_inode` structure representing the file to read from.
+ * @param offset The byte offset within the file to start reading from.
+ * @param buffer Pointer to a buffer where the read data will be stored.
+ * @param size The number of bytes to read into the buffer.
+ * 
+ * @return `ext_status` Status code indicating the result of the operation.
+ *         - Success if the data was read successfully.
+ *         - Error code if the operation failed (e.g., I/O error, invalid inode, or read beyond end of file).
+ * 
+ * @see ext_filesystem, ext_inode, ext_status
+ */
+ext_status ext2_read_file(const ext_filesystem* fs, const ext_inode* file, uint64_t offset, void* buffer, size_t size);
 
 #ifdef __cplusplus
 }

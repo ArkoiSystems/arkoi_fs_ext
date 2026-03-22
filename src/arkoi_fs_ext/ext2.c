@@ -245,7 +245,7 @@ ext_status ext2_lookup_name(const ext_filesystem* fs, const ext_inode* dir, cons
     for(size_t index = 0; index < NELEMS(dir->i_block); ++index) {
         // TODO: Handle indirect blocks when index >= 12U
         if(index >= 12U) {
-            continue;
+            return EXT_STATUS_UNSUPPORTED;
         }
 
         if (dir->i_block[index] == 0) {
@@ -324,6 +324,56 @@ ext_status ext2_lookup_path(const ext_filesystem* fs, const char* path, ext_inod
     }
 
     *found = current_inode;
+
+    return EXT_STATUS_OK;
+}
+
+ext_status ext2_read_file(const ext_filesystem* fs, const ext_inode* file, uint64_t offset, void* buffer, size_t size) {
+    if (fs == NULL || file == NULL || buffer == NULL) {
+        return EXT_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (offset >= file->i_size) {
+        return EXT_STATUS_OUT_OF_RANGE;
+    }
+
+    size_t current = offset;
+    size_t bytes_read = 0;
+
+    while (bytes_read < size && current < file->i_size) {
+        const uint32_t block_index = current / fs->block_size;
+        const uint32_t block_offset = current % fs->block_size;
+
+        // TODO: Handle indirect blocks
+        if (block_index >= 12U) {
+            return EXT_STATUS_UNSUPPORTED;
+        }
+
+        const uint32_t block_number = file->i_block[block_index];
+        if (block_number == 0) {
+            break;
+        }
+
+        const uint64_t block_address = block_number * (uint64_t)(fs->block_size);
+        const uint64_t read_offset = block_address + block_offset;
+
+        const size_t remaining_in_block = fs->block_size - block_offset;
+        const size_t remaining_in_file = file->i_size - current;
+        const size_t remaining_requested = size - bytes_read;
+
+        const size_t min_read_size = remaining_in_block < remaining_in_file ? remaining_in_block : remaining_in_file;
+        const size_t read_size = min_read_size < remaining_requested ? min_read_size : remaining_requested;
+
+        uint8_t* read_buffer = (uint8_t*)buffer + bytes_read;
+
+        const ext_status device_status = device_read(fs, read_offset, read_buffer, read_size);
+        if (device_status != EXT_STATUS_OK) {
+            return device_status;
+        }
+
+        current += read_size;
+        bytes_read += read_size;
+    }
 
     return EXT_STATUS_OK;
 }

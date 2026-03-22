@@ -228,3 +228,39 @@ TEST(Ext2ApiTest, CanLookupTestByPath) {
     EXPECT_EQ(found_inode.i_dir_acl, 0U);
     EXPECT_EQ(found_inode.i_faddr, 0U);
 }
+
+TEST(Ext2ApiTest, CanReadHelloFile) {
+    FileDevice device = create_device("valid.img");
+    ext_filesystem ext{};
+
+    const ext_status mount_status = ext2_mount(&ext, make_device(&device));
+    EXPECT_EQ(mount_status, EXT_STATUS_OK);
+
+    ext_inode hello_inode{};
+    const ext_status inode_status = ext2_lookup_path(&ext, "/hello.txt", &hello_inode);
+    EXPECT_EQ(inode_status, EXT_STATUS_OK);
+
+    char buffer[14]{};
+    const ext_status read_status = ext2_read_file(&ext, &hello_inode, 0, buffer, sizeof(buffer) - 1);
+    EXPECT_EQ(read_status, EXT_STATUS_OK);
+
+    EXPECT_STREQ(buffer, "Hello World!\n");
+}
+
+TEST(Ext2ApiTest, CanReadTestFile) {
+    FileDevice device = create_device("valid.img");
+    ext_filesystem ext{};
+
+    const ext_status mount_status = ext2_mount(&ext, make_device(&device));
+    EXPECT_EQ(mount_status, EXT_STATUS_OK);
+
+    ext_inode test_inode{};
+    const ext_status inode_status = ext2_lookup_path(&ext, "/subdir/test.txt", &test_inode);
+    EXPECT_EQ(inode_status, EXT_STATUS_OK);
+
+    char buffer[18]{};
+    const ext_status read_status = ext2_read_file(&ext, &test_inode, 0, buffer, sizeof(buffer) - 1);
+    EXPECT_EQ(read_status, EXT_STATUS_OK);
+
+    EXPECT_STREQ(buffer, "Inside a subdir!\n");
+}
