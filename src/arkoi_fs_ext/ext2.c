@@ -48,8 +48,10 @@ ext_status ext2_mount(ext_filesystem* fs, const ext_device device) {
         return EXT_STATUS_UNSUPPORTED;
     }
 
-    fs->group_count = (fs->superblock.s_blocks_count + fs->superblock.s_blocks_per_group - 1U) / fs->superblock.s_blocks_per_group;
-    fs->group_descriptor_table_offset = (fs->block_size == 1024U) ? 2048U : fs->block_size;
+    fs->block_group_table_count = (fs->superblock.s_blocks_count + fs->superblock.s_blocks_per_group - 1U) / fs->superblock.s_blocks_per_group;
+    fs->block_group_table_offset = (fs->block_size == 1024U) ? 2048U : fs->block_size;
+
+    
 
     return EXT_STATUS_OK;
 }
@@ -125,7 +127,7 @@ ext_status ext2_read_superblock(const ext_filesystem* fs, ext_superblock* superb
         return EXT_STATUS_INVALID_ARGUMENT;
     }
 
-    uint8_t data[1024U];
+    uint8_t data[1024];
 
     const ext_status status = device_read(fs, EXT2_SUPERBLOCK_OFFSET, data, sizeof(data));
     if (status != EXT_STATUS_OK) {
@@ -133,4 +135,43 @@ ext_status ext2_read_superblock(const ext_filesystem* fs, ext_superblock* superb
     }
 
     return decode_superblock(data, superblock);
+}
+
+static ext_status decode_block_group_descriptor(const uint8_t* data, ext_block_group_descriptor* block_group_descriptor) {
+    if (data == NULL || block_group_descriptor == NULL) {
+        return EXT_STATUS_INVALID_ARGUMENT;
+    }
+
+    cursor cursor = { data };
+
+    cursor_read_u32(&cursor, &block_group_descriptor->bg_block_bitmap);
+    cursor_read_u32(&cursor, &block_group_descriptor->bg_inode_bitmap);
+    cursor_read_u32(&cursor, &block_group_descriptor->bg_inode_table);
+    cursor_read_u16(&cursor, &block_group_descriptor->bg_free_blocks_count);
+    cursor_read_u16(&cursor, &block_group_descriptor->bg_free_inodes_count);
+    cursor_read_u16(&cursor, &block_group_descriptor->bg_used_dirs_count);
+    cursor_read_u16(&cursor, &block_group_descriptor->bg_pad);
+    cursor_read_bytes(&cursor, block_group_descriptor->bg_reserved, NELEMS(block_group_descriptor->bg_reserved));
+
+    return EXT_STATUS_OK;
+}
+
+ext_status ext2_read_block_group_descriptor(const ext_filesystem* fs, uint32_t group_index, ext_block_group_descriptor* block_group_descriptor) {
+    if (fs == NULL || block_group_descriptor == NULL) {
+        return EXT_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (group_index >= fs->block_group_table_count) {
+        return EXT_STATUS_OUT_OF_RANGE;
+    }
+
+    const uint64_t offset = fs->block_group_table_offset + group_index * sizeof(ext_block_group_descriptor);
+    uint8_t data[sizeof(ext_block_group_descriptor)];
+
+    const ext_status status = device_read(fs, offset, data, sizeof(data));
+    if (status != EXT_STATUS_OK) {
+        return status;
+    }
+
+    return decode_block_group_descriptor(data, block_group_descriptor);
 }

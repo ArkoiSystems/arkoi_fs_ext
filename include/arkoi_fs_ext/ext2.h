@@ -76,13 +76,24 @@ typedef struct ext_superblock {
 	uint8_t s_padding_3[760];        /**< Remaining superblock bytes to 1024. */
 } ext_superblock;
 
+typedef struct ext_block_group_descriptor {
+	uint32_t bg_block_bitmap;       /**< Block number of block bitmap. */
+	uint32_t bg_inode_bitmap;       /**< Block number of inode bitmap. */
+	uint32_t bg_inode_table;       	/**< Starting block number of inode table. */
+	uint16_t bg_free_blocks_count; 	/**< Number of free blocks in the group. */
+	uint16_t bg_free_inodes_count; 	/**< Number of free inodes in the group. */
+	uint16_t bg_used_dirs_count;   	/**< Number of directories in the group. */
+	uint16_t bg_pad;               	/**< Padding to align to 32 bytes. */
+	uint8_t bg_reserved[12];       	/**< Reserved for future use. */
+} ext_block_group_descriptor;
+
 typedef struct ext_filesystem {
-	ext_device device;						/**< Device interface for reading filesystem data. */
-	ext_superblock superblock;				/**< Cached superblock data for quick access. */
-	uint32_t block_size;					/**< Block size in bytes, calculated from superblock. */
-	uint32_t inode_size;					/**< Inode size in bytes, from superblock. */
-	uint32_t group_count;					/**< Number of block groups in the filesystem. */	
-	uint64_t group_descriptor_table_offset;	/**< Byte offset to the block group descriptor table on the device. */
+	ext_device device;					/**< Device interface for reading filesystem data. */
+	ext_superblock superblock;			/**< Cached superblock data for quick access. */
+	uint32_t block_size;				/**< Block size in bytes, calculated from superblock. */
+	uint32_t inode_size;				/**< Inode size in bytes, from superblock. */
+	uint32_t block_group_table_count;	/**< Number of block groups in the filesystem. */	
+	uint64_t block_group_table_offset;	/**< Byte offset to the block group descriptor table on the device. */
 } ext_filesystem;
 
 /**
@@ -121,6 +132,25 @@ ext_status ext2_mount(ext_filesystem* fs, ext_device device);
  * @see ext_filesystem, ext_superblock, ext_status
  */
 ext_status ext2_read_superblock(const ext_filesystem* fs, ext_superblock* superblock);
+
+/**
+ * @brief Reads a block group descriptor from an EXT2 filesystem.
+ * 
+ * Reads the block group descriptor for the specified block group index from the EXT2 filesystem
+ * and populates the provided block group descriptor structure with the relevant metadata.
+ * 
+ * @param fs Pointer to the `ext_filesystem` structure representing the EXT2 filesystem.
+ * @param group_index The index of the block group to read the descriptor for (0-based).
+ * @param block_group_descriptor Pointer to an `ext_block_group_descriptor` structure where the read descriptor
+ *                               data will be stored.
+ * 
+ * @return `ext_status` Status code indicating the result of the operation.
+ *         - Success if the block group descriptor was read successfully.
+ *         - Error code if the operation failed (e.g., I/O error, invalid group index).
+ * 
+ * @see ext_filesystem, ext_block_group_descriptor, ext_status
+ */
+ext_status ext2_read_block_group_descriptor(const ext_filesystem* fs, uint32_t group_index, ext_block_group_descriptor* block_group_descriptor);
 
 #ifdef __cplusplus
 }

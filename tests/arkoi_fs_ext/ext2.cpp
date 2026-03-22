@@ -53,17 +53,18 @@ ext_device make_device(FileDevice* dev) {
     return ext_device{ .context = dev, .read = file_device_read };
 }
 
-TEST(Ext2ApiTest, MountParsesSuperblockAndGeometry) {
+TEST(Ext2ApiTest, ValidMount) {
     FileDevice device = create_device("valid.img");
     ext_filesystem ext{};
 
     const ext_status mount_status = ext2_mount(&ext, make_device(&device));
     EXPECT_EQ(mount_status, EXT_STATUS_OK);
 
+    EXPECT_EQ(ext.superblock.s_magic, 0xEF53U);
     EXPECT_EQ(ext.block_size, 1024U);
     EXPECT_EQ(ext.inode_size, 128U);
-    EXPECT_EQ(ext.group_count, 1U);
-    EXPECT_EQ(ext.superblock.s_magic, 0xEF53U);
+    EXPECT_EQ(ext.block_group_table_count, 1U);
+    EXPECT_EQ(ext.block_group_table_offset, 2048U);
 }
 
 TEST(Ext2ApiTest, RejectsBadMagic) {
@@ -89,4 +90,25 @@ TEST(Ext2ApiTest, RejectsNullFilesystemInMount) {
 
     const ext_status mount_status = ext2_mount(nullptr, make_device(&device));
     EXPECT_EQ(mount_status, EXT_STATUS_INVALID_ARGUMENT);
+}
+
+TEST(Ext2ApiTest, ValidBlockGroupDescriptorRead) {
+    FileDevice device = create_device("valid.img");
+    ext_filesystem ext{};
+
+    const ext_status mount_status = ext2_mount(&ext, make_device(&device));
+    EXPECT_EQ(mount_status, EXT_STATUS_OK);
+
+    EXPECT_EQ(ext.block_group_table_count, 1U);
+
+    ext_block_group_descriptor descriptor{};
+    const ext_status descriptor_status = ext2_read_block_group_descriptor(&ext, 0, &descriptor);
+    EXPECT_EQ(descriptor_status, EXT_STATUS_OK);
+
+    EXPECT_EQ(descriptor.bg_block_bitmap, 3U);
+    EXPECT_EQ(descriptor.bg_inode_bitmap, 4U);
+    EXPECT_EQ(descriptor.bg_inode_table, 5U);
+    EXPECT_EQ(descriptor.bg_free_blocks_count, 231U);
+    EXPECT_EQ(descriptor.bg_free_inodes_count, 19U);
+    EXPECT_EQ(descriptor.bg_used_dirs_count, 3U);
 }
