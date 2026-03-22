@@ -141,7 +141,7 @@ TEST(Ext2ApiTest, ValidRootInodeRead) {
     EXPECT_EQ(inode.i_faddr, 0U);
 }
 
-TEST(Ext2ApiTest, ValidHelloWorldInodeRead) {
+TEST(Ext2ApiTest, CanReadHelloInode) {
     FileDevice device = create_device("valid.img");
     ext_filesystem ext{};
 
@@ -167,4 +167,64 @@ TEST(Ext2ApiTest, ValidHelloWorldInodeRead) {
     EXPECT_EQ(inode.i_file_acl, 0U);
     EXPECT_EQ(inode.i_dir_acl, 0U);
     EXPECT_EQ(inode.i_faddr, 0U);
+}
+
+TEST(Ext2ApiTest, CanLookupHelloByName) {
+    FileDevice device = create_device("valid.img");
+    ext_filesystem ext{};
+
+    const ext_status mount_status = ext2_mount(&ext, make_device(&device));
+    EXPECT_EQ(mount_status, EXT_STATUS_OK);
+
+    ext_inode root_inode{};
+    const ext_status inode_status = ext2_read_inode(&ext, 2, &root_inode);
+    EXPECT_EQ(inode_status, EXT_STATUS_OK);
+
+    ext_inode found_inode{};
+    const ext_status list_status = ext2_lookup_name(&ext, &root_inode, "hello.txt", &found_inode);
+    EXPECT_EQ(list_status, EXT_STATUS_OK);
+
+    EXPECT_EQ(found_inode.i_mode, 33188U);
+    EXPECT_EQ(found_inode.i_uid, 0U);
+    EXPECT_EQ(found_inode.i_size, 13U);
+    EXPECT_EQ(found_inode.i_atime, 1774202665U);
+    EXPECT_EQ(found_inode.i_ctime, 1774202665U);
+    EXPECT_EQ(found_inode.i_mtime, 1774202665U);
+    EXPECT_EQ(found_inode.i_dtime, 0U);
+    EXPECT_EQ(found_inode.i_gid, 0U);
+    EXPECT_EQ(found_inode.i_links_count, 1U);
+    EXPECT_EQ(found_inode.i_blocks, 2U);
+    EXPECT_EQ(found_inode.i_flags, 0U);
+    EXPECT_EQ(found_inode.i_osd1, 0U);
+    EXPECT_EQ(found_inode.i_file_acl, 0U);
+    EXPECT_EQ(found_inode.i_dir_acl, 0U);
+    EXPECT_EQ(found_inode.i_faddr, 0U); 
+}
+
+TEST(Ext2ApiTest, CanLookupTestByPath) {
+    FileDevice device = create_device("valid.img");
+    ext_filesystem ext{};
+
+    const ext_status mount_status = ext2_mount(&ext, make_device(&device));
+    EXPECT_EQ(mount_status, EXT_STATUS_OK);
+
+    ext_inode found_inode{};
+    const ext_status list_status = ext2_lookup_path(&ext, "/subdir/test.txt", &found_inode);
+    EXPECT_EQ(list_status, EXT_STATUS_OK);
+
+    EXPECT_EQ(found_inode.i_mode, 33188U);
+    EXPECT_EQ(found_inode.i_uid, 0U);
+    EXPECT_EQ(found_inode.i_size, 17U);
+    EXPECT_EQ(found_inode.i_atime, 1774202681U);
+    EXPECT_EQ(found_inode.i_ctime, 1774202681U);
+    EXPECT_EQ(found_inode.i_mtime, 1774202681U);
+    EXPECT_EQ(found_inode.i_dtime, 0U);
+    EXPECT_EQ(found_inode.i_gid, 0U);
+    EXPECT_EQ(found_inode.i_links_count, 1U);
+    EXPECT_EQ(found_inode.i_blocks, 2U);
+    EXPECT_EQ(found_inode.i_flags, 0U);
+    EXPECT_EQ(found_inode.i_osd1, 0U);
+    EXPECT_EQ(found_inode.i_file_acl, 0U);
+    EXPECT_EQ(found_inode.i_dir_acl, 0U);
+    EXPECT_EQ(found_inode.i_faddr, 0U);
 }

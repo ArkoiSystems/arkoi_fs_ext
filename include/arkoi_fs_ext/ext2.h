@@ -199,6 +199,10 @@ ext_status ext2_read_block_group_descriptor(const ext_filesystem* fs, uint32_t g
  */
 ext_status ext2_read_inode(const ext_filesystem* fs, uint32_t number, ext_inode* inode);
 
+ext_status ext2_lookup_name(const ext_filesystem* fs, const ext_inode* dir, const char* name, ext_inode* found);
+
+ext_status ext2_lookup_path(const ext_filesystem* fs, const char* path, ext_inode* found);
+
 #ifdef __cplusplus
 }
 #endif

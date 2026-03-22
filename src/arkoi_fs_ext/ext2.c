@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 #define NELEMS(array) (sizeof(array) / sizeof((array)[0]))
 
@@ -236,4 +237,93 @@ ext_status ext2_read_inode(const ext_filesystem* fs, uint32_t number, ext_inode*
     }
 
     return decode_inode(data, inode);
+}
+
+ext_status ext2_lookup_name(const ext_filesystem* fs, const ext_inode* dir, const char* name, ext_inode* found) {
+    uint8_t data[fs->block_size];
+
+    for(size_t index = 0; index < NELEMS(dir->i_block); ++index) {
+        // TODO: Handle indirect blocks when index >= 12U
+        if(index >= 12U) {
+            continue;
+        }
+
+        if (dir->i_block[index] == 0) {
+            continue;
+        }
+
+        const uint64_t block_offset = dir->i_block[index] * (uint64_t)(fs->block_size);
+
+        const ext_status device_status = device_read(fs, block_offset, data, sizeof(data));
+        if (device_status != EXT_STATUS_OK) {
+            return device_status;
+        }
+
+        size_t offset = 0;
+        while (offset < fs->block_size) {
+            ext_directory_entry* entry = (ext_directory_entry*)(data + offset);
+            if (entry->rec_len == 0) {
+                break;
+            }
+
+            if (entry->inode != 0) {
+                if (entry->name_len == strlen(name) && strncmp(entry->name, name, entry->name_len) == 0) {
+                    return ext2_read_inode(fs, entry->inode, found);
+                }
+            }
+
+            offset += entry->rec_len;
+        }
+    }
+
+    return EXT_STATUS_OK;
+}
+
+ext_status ext2_lookup_path(const ext_filesystem* fs, const char* path, ext_inode* found) {
+    if (fs == NULL || path == NULL || found == NULL || path[0] != '/') {
+        return EXT_STATUS_INVALID_ARGUMENT;
+    }
+
+    ext_inode current_inode;
+
+    const ext_status root_status = ext2_read_inode(fs, 2U, &current_inode);
+    if (root_status != EXT_STATUS_OK) {
+        return root_status;
+    }
+
+    while(*path == '/') {
+        ++path;
+    }
+
+    while(*path != '\0') {
+        ext_inode next_inode;
+        
+        size_t name_length = 0;
+        char name[256];
+
+        while(*path != '/' && *path != '\0') {
+            if(name_length > 255) {
+                return EXT_STATUS_OUT_OF_RANGE;
+            }
+
+            name[name_length++] = *path++;
+        }
+
+        name[name_length++] = '\0';
+
+        while(*path == '/') {
+            ++path;
+        }
+
+        const ext_status next_status = ext2_lookup_name(fs, &current_inode, name, &next_inode);
+        if(next_status != EXT_STATUS_OK) {
+            return next_status;
+        }
+
+        current_inode = next_inode;
+    }
+
+    *found = current_inode;
+
+    return EXT_STATUS_OK;
 }
