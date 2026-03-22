@@ -62,7 +62,7 @@ TEST(Ext2ApiTest, ValidMount) {
 
     EXPECT_EQ(ext.superblock.s_magic, 0xEF53U);
     EXPECT_EQ(ext.block_size, 1024U);
-    EXPECT_EQ(ext.inode_size, 128U);
+    EXPECT_EQ(ext.inode_size, 256U);
     EXPECT_EQ(ext.block_group_table_count, 1U);
     EXPECT_EQ(ext.block_group_table_offset, 2048U);
 }
@@ -108,9 +108,9 @@ TEST(Ext2ApiTest, ValidBlockGroupDescriptorRead) {
     EXPECT_EQ(descriptor.bg_block_bitmap, 3U);
     EXPECT_EQ(descriptor.bg_inode_bitmap, 4U);
     EXPECT_EQ(descriptor.bg_inode_table, 5U);
-    EXPECT_EQ(descriptor.bg_free_blocks_count, 244U);
-    EXPECT_EQ(descriptor.bg_free_inodes_count, 21U);
-    EXPECT_EQ(descriptor.bg_used_dirs_count, 1U);
+    EXPECT_EQ(descriptor.bg_free_blocks_count, 226U);
+    EXPECT_EQ(descriptor.bg_free_inodes_count, 18U);
+    EXPECT_EQ(descriptor.bg_used_dirs_count, 3U);
 }
 
 TEST(Ext2ApiTest, ValidRootInodeRead) {
@@ -121,15 +121,43 @@ TEST(Ext2ApiTest, ValidRootInodeRead) {
     EXPECT_EQ(mount_status, EXT_STATUS_OK);
 
     ext_inode inode{};
-    const ext_status inode_status = ext2_read_inode(&ext, 12, &inode);
+    const ext_status inode_status = ext2_read_inode(&ext, 2, &inode);
+    EXPECT_EQ(inode_status, EXT_STATUS_OK);
+
+    EXPECT_EQ(inode.i_mode, 16877U);
+    EXPECT_EQ(inode.i_uid, 0U);
+    EXPECT_EQ(inode.i_size, 1024U);
+    EXPECT_EQ(inode.i_atime, 1774202674U);
+    EXPECT_EQ(inode.i_ctime, 1774202671U);
+    EXPECT_EQ(inode.i_mtime, 1774202671U);
+    EXPECT_EQ(inode.i_dtime, 0U);
+    EXPECT_EQ(inode.i_gid, 0U);
+    EXPECT_EQ(inode.i_links_count, 4U);
+    EXPECT_EQ(inode.i_blocks, 2U);
+    EXPECT_EQ(inode.i_flags, 0U);
+    EXPECT_EQ(inode.i_osd1, 0U);
+    EXPECT_EQ(inode.i_file_acl, 0U);
+    EXPECT_EQ(inode.i_dir_acl, 0U);
+    EXPECT_EQ(inode.i_faddr, 0U);
+}
+
+TEST(Ext2ApiTest, ValidHelloWorldInodeRead) {
+    FileDevice device = create_device("valid.img");
+    ext_filesystem ext{};
+
+    const ext_status mount_status = ext2_mount(&ext, make_device(&device));
+    EXPECT_EQ(mount_status, EXT_STATUS_OK);
+
+    ext_inode inode{};
+    const ext_status inode_status = ext2_read_inode(&ext, 14, &inode);
     EXPECT_EQ(inode_status, EXT_STATUS_OK);
 
     EXPECT_EQ(inode.i_mode, 33188U);
     EXPECT_EQ(inode.i_uid, 0U);
     EXPECT_EQ(inode.i_size, 13U);
-    EXPECT_EQ(inode.i_atime, 1774201364U);
-    EXPECT_EQ(inode.i_ctime, 1774201364U);
-    EXPECT_EQ(inode.i_mtime, 1774201364U);
+    EXPECT_EQ(inode.i_atime, 1774202665U);
+    EXPECT_EQ(inode.i_ctime, 1774202665U);
+    EXPECT_EQ(inode.i_mtime, 1774202665U);
     EXPECT_EQ(inode.i_dtime, 0U);
     EXPECT_EQ(inode.i_gid, 0U);
     EXPECT_EQ(inode.i_links_count, 1U);

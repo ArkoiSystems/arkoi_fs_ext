@@ -108,6 +108,14 @@ typedef struct ext_inode {
 	uint8_t i_osd2[12];   	/**< OS-dependent value 2. */
 } ext_inode;
 
+typedef struct ext_directory_entry {
+	uint32_t inode;    	/**< Inode number. */
+	uint16_t rec_len;  	/**< Directory entry length. */
+	uint8_t name_len;  	/**< Name length. */
+	uint8_t file_type; 	/**< File type (0=unknown, 1=regular, 2=dir, etc.). */
+	char name[];    	/**< File name (not null-terminated). */
+} ext_directory_entry;
+
 typedef struct ext_filesystem {
 	ext_device device;					/**< Device interface for reading filesystem data. */
 	ext_superblock superblock;			/**< Cached superblock data for quick access. */
