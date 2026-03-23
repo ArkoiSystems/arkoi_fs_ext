@@ -108,8 +108,8 @@ TEST(Ext2ApiTest, ValidBlockGroupDescriptorRead) {
     EXPECT_EQ(descriptor.bg_block_bitmap, 3U);
     EXPECT_EQ(descriptor.bg_inode_bitmap, 4U);
     EXPECT_EQ(descriptor.bg_inode_table, 5U);
-    EXPECT_EQ(descriptor.bg_free_blocks_count, 226U);
-    EXPECT_EQ(descriptor.bg_free_inodes_count, 18U);
+    EXPECT_EQ(descriptor.bg_free_blocks_count, 205U);
+    EXPECT_EQ(descriptor.bg_free_inodes_count, 17U);
     EXPECT_EQ(descriptor.bg_used_dirs_count, 3U);
 }
 
@@ -229,6 +229,30 @@ TEST(Ext2ApiTest, CanLookupTestByPath) {
     EXPECT_EQ(found_inode.i_faddr, 0U);
 }
 
+TEST(Ext2ApiTest, RejectsInvalidPath) {
+    FileDevice device = create_device("valid.img");
+    ext_filesystem ext{};
+
+    const ext_status mount_status = ext2_mount(&ext, make_device(&device));
+    EXPECT_EQ(mount_status, EXT_STATUS_OK);
+
+    ext_inode found_inode{};
+    const ext_status list_status = ext2_lookup_path(&ext, "no_leading_slash.txt", &found_inode);
+    EXPECT_EQ(list_status, EXT_STATUS_INVALID_ARGUMENT);
+}
+
+TEST(Ext2ApiTest, RejectsNonexistentFile) {
+    FileDevice device = create_device("valid.img");
+    ext_filesystem ext{};
+
+    const ext_status mount_status = ext2_mount(&ext, make_device(&device));
+    EXPECT_EQ(mount_status, EXT_STATUS_OK);
+
+    ext_inode found_inode{};
+    const ext_status list_status = ext2_lookup_path(&ext, "/nonexistent.txt", &found_inode);
+    EXPECT_EQ(list_status, EXT_NOT_FOUND);
+}
+
 TEST(Ext2ApiTest, CanReadHelloFile) {
     FileDevice device = create_device("valid.img");
     ext_filesystem ext{};
@@ -263,4 +287,50 @@ TEST(Ext2ApiTest, CanReadTestFile) {
     EXPECT_EQ(read_status, EXT_STATUS_OK);
 
     EXPECT_STREQ(buffer, "Inside a subdir!\n");
+}
+
+TEST(Ext2ApiTest, ResolveBlocks) {
+    FileDevice device = create_device("valid.img");
+    ext_filesystem ext{};
+
+    const ext_status mount_status = ext2_mount(&ext, make_device(&device));
+    EXPECT_EQ(mount_status, EXT_STATUS_OK);
+
+    ext_inode large_inode{};
+    const ext_status inode_status = ext2_lookup_path(&ext, "/large.bin", &large_inode);
+    EXPECT_EQ(inode_status, EXT_STATUS_OK);
+
+    EXPECT_EQ(large_inode.i_size, 20 * 1024U);
+
+    auto check_block = [&](uint32_t index, uint32_t expected_number) {
+        uint32_t block_number;
+
+        const ext_status status = ext2_resolve_block(&ext, &large_inode, index, &block_number);
+        EXPECT_EQ(status, EXT_STATUS_OK);
+
+        EXPECT_EQ(block_number, expected_number);
+    };
+
+    check_block(0, 28U);
+    check_block(1, 29U);
+    check_block(2, 30U);
+    check_block(3, 31U);
+    check_block(4, 32U);
+    check_block(5, 33U);
+    check_block(6, 34U);
+    check_block(7, 35U);
+
+    check_block(8,  38U);
+    check_block(9,  39U);
+    check_block(10, 40U);
+    check_block(11, 41U);
+
+    check_block(12, 43U);
+    check_block(13, 44U);
+    check_block(14, 45U);
+    check_block(15, 46U);
+    check_block(16, 47U);
+    check_block(17, 48U);
+    check_block(18, 49U);
+    check_block(19, 50U);
 }

@@ -52,11 +52,8 @@ ext_status ext2_mount(ext_filesystem* fs, const ext_device device) {
     fs->block_group_table_count = (fs->superblock.s_blocks_count + fs->superblock.s_blocks_per_group - 1U) / fs->superblock.s_blocks_per_group;
     fs->block_group_table_offset = (fs->block_size == 1024U) ? 2048U : fs->block_size;
 
-    
-
     return EXT_STATUS_OK;
 }
-
 
 static ext_status decode_superblock(const uint8_t* data, ext_superblock* superblock) {
     if (data == NULL || superblock == NULL) {
@@ -239,20 +236,113 @@ ext_status ext2_read_inode(const ext_filesystem* fs, uint32_t number, ext_inode*
     return decode_inode(data, inode);
 }
 
+static ext_status read_indirect_block(const ext_filesystem* fs, const uint32_t indirect_block, const uint32_t block_index, uint32_t* block_number) {
+    if(fs == NULL || block_number == NULL) {
+        return EXT_STATUS_INVALID_ARGUMENT;
+    }
+
+    const uint32_t pointers_per_block = fs->block_size / sizeof(uint32_t);
+    if(block_index >= pointers_per_block) {
+        return EXT_STATUS_OUT_OF_RANGE;
+    }
+
+    uint8_t data[fs->block_size];
+    const uint64_t block_offset = indirect_block * (uint64_t)(fs->block_size);
+
+    const ext_status device_status = device_read(fs, block_offset, data, sizeof(data));
+    if (device_status != EXT_STATUS_OK) {
+        return device_status;
+    }
+
+    cursor cursor = { data + (block_index * sizeof(uint32_t)) };
+    cursor_read_u32(&cursor, block_number);
+
+    return EXT_STATUS_OK;
+
+}
+
+static ext_status resolve_indirect_recursive(const ext_filesystem* fs, const uint32_t indirect_block, const uint32_t level, const uint32_t block_index, uint32_t* block_number) {
+    if (fs == NULL || block_number == NULL || level == 0) {
+        return EXT_STATUS_INVALID_ARGUMENT;
+    }
+
+    if(level == 1) {
+        return read_indirect_block(fs, indirect_block, block_index, block_number);
+    }
+
+    const uint32_t pointers_per_block = fs->block_size / sizeof(uint32_t);
+    
+    const uint32_t current_index = block_index / pointers_per_block;
+    const uint32_t next_index = block_index % pointers_per_block;
+    
+    uint32_t next_block;
+    
+    ext_status status = read_indirect_block(fs, indirect_block, current_index, &next_block);
+    if (status != EXT_STATUS_OK) {
+        return status;
+    }
+    
+    if (next_block == 0) {
+        *block_number = 0;
+        return EXT_STATUS_OK;
+    }
+
+    return resolve_indirect_recursive(fs, next_block, level - 1, next_index, block_number);
+}
+
+ext_status ext2_resolve_block(const ext_filesystem* fs, const ext_inode* inode, uint32_t block_index, uint32_t* block_number) {
+    if (fs == NULL || inode == NULL || block_number == NULL) {
+        return EXT_STATUS_INVALID_ARGUMENT;
+    }
+
+    const uint32_t direct_range = 12U;
+    if(block_index < direct_range) {
+        *block_number = inode->i_block[block_index];
+        return EXT_STATUS_OK;
+    }
+
+    const uint32_t pointers_per_block = fs->block_size / sizeof(uint32_t);
+
+    const uint32_t single_range = pointers_per_block;
+    if(block_index < direct_range + single_range) {
+        const uint32_t single_index = block_index - direct_range;
+        return resolve_indirect_recursive(fs, inode->i_block[12], 1, single_index, block_number);
+    }
+
+    const uint32_t double_range = pointers_per_block * pointers_per_block;
+    if(block_index < direct_range + single_range + double_range) {
+        const uint32_t double_index = block_index - direct_range - single_range;
+        return resolve_indirect_recursive(fs, inode->i_block[13], 2, double_index, block_number);
+    }
+
+    const uint32_t triple_range = pointers_per_block * pointers_per_block * pointers_per_block;
+    if(block_index < direct_range + single_range + double_range + triple_range) {
+        const uint32_t triple_index = block_index - direct_range - single_range - double_range;
+        return resolve_indirect_recursive(fs, inode->i_block[14], 3, triple_index, block_number);
+    }
+
+    return EXT_STATUS_OUT_OF_RANGE;
+}
+
 ext_status ext2_lookup_name(const ext_filesystem* fs, const ext_inode* dir, const char* name, ext_inode* found) {
+    if (fs == NULL || dir == NULL || name == NULL || found == NULL) {
+        return EXT_STATUS_INVALID_ARGUMENT;
+    }
+
     uint8_t data[fs->block_size];
 
     for(size_t index = 0; index < NELEMS(dir->i_block); ++index) {
         // TODO: Handle indirect blocks when index >= 12U
         if(index >= 12U) {
-            return EXT_STATUS_UNSUPPORTED;
-        }
-
-        if (dir->i_block[index] == 0) {
             continue;
         }
 
-        const uint64_t block_offset = dir->i_block[index] * (uint64_t)(fs->block_size);
+        const uint32_t block_number = dir->i_block[index];
+        if (block_number == 0) {
+            continue;
+        }
+
+        const uint64_t block_offset = block_number * (uint64_t)(fs->block_size);
 
         const ext_status device_status = device_read(fs, block_offset, data, sizeof(data));
         if (device_status != EXT_STATUS_OK) {
@@ -276,7 +366,7 @@ ext_status ext2_lookup_name(const ext_filesystem* fs, const ext_inode* dir, cons
         }
     }
 
-    return EXT_STATUS_OK;
+    return EXT_NOT_FOUND;
 }
 
 ext_status ext2_lookup_path(const ext_filesystem* fs, const char* path, ext_inode* found) {
@@ -344,12 +434,13 @@ ext_status ext2_read_file(const ext_filesystem* fs, const ext_inode* file, uint6
         const uint32_t block_index = current / fs->block_size;
         const uint32_t block_offset = current % fs->block_size;
 
-        // TODO: Handle indirect blocks
-        if (block_index >= 12U) {
-            return EXT_STATUS_UNSUPPORTED;
+        uint32_t block_number;
+
+        const ext_status resolve_status = ext2_resolve_block(fs, file, block_index, &block_number);
+        if (resolve_status != EXT_STATUS_OK) {
+            return resolve_status;
         }
 
-        const uint32_t block_number = file->i_block[block_index];
         if (block_number == 0) {
             break;
         }
@@ -371,8 +462,8 @@ ext_status ext2_read_file(const ext_filesystem* fs, const ext_inode* file, uint6
             return device_status;
         }
 
-        current += read_size;
         bytes_read += read_size;
+        current += read_size;
     }
 
     return EXT_STATUS_OK;

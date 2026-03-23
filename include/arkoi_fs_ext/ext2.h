@@ -311,6 +311,26 @@ ext_status ext2_read_block_group_descriptor(const ext_filesystem* fs, uint32_t g
 ext_status ext2_read_inode(const ext_filesystem* fs, uint32_t number, ext_inode* inode);
 
 /**
+ * @brief Resolves a file block to its corresponding block number on the device.
+ * 
+ * Translates a logical block index within a file (as represented by an inode) to the actual
+ * block number on the device where the data is stored, taking into account direct, indirect,
+ * double indirect, and triple indirect block pointers as defined by the EXT2 filesystem.
+ * 
+ * @param fs Pointer to the `ext_filesystem` structure representing the EXT2 filesystem.
+ * @param inode Pointer to the `ext_inode` structure representing the file whose block is being resolved.
+ * @param block_index The logical block index within the file to resolve (0-based).
+ * @param block_number Pointer to a uint32_t where the resolved block number will be stored if successful.
+ * 
+ * @return `ext_status` Status code indicating the result of the operation.
+ *         - Success if the block was resolved successfully and `block_number` was populated.
+ *         - Error code if the operation failed (e.g., I/O error, invalid block index, or block not allocated).
+ * 
+ * @see ext_filesystem, ext_inode, ext_status
+ */
+ext_status ext2_resolve_block(const ext_filesystem* fs, const ext_inode* inode, uint32_t block_index, uint32_t* block_number);
+
+/**
  * @brief Looks up an inode by name within a directory.
  * 
  * Searches for an inode with the specified name within the given directory
